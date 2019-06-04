@@ -134,6 +134,7 @@ def update_output(chart_type, study, contents):
         group_type = study_data['group_type'][study_data.group_id == group_id].values[0]
 
         y_data = study_data['reading_value'][study_data.group_id == group_id]
+        subject_ids = study_data['subject_id'][study_data.group_id == group_id]
 
         t, p = stats.ttest_ind(vehicle_readings,
                                y_data)
@@ -146,6 +147,9 @@ def update_output(chart_type, study, contents):
         box_data.append(
             go.Box(y=y_data,
                    name=group_name,
+                   text=subject_ids,
+                   hoveron="points",
+                   boxmean=True,
                    showlegend=False,
                    boxpoints='all',
                    pointpos=0,
@@ -155,6 +159,9 @@ def update_output(chart_type, study, contents):
         violin_data.append(
             go.Violin(y=y_data,
                       name=group_name,
+                      text=subject_ids,
+                      hoveron="points",
+                      meanline={"visible": True},
                       showlegend=False,
                       points='all',
                       pointpos=0,
