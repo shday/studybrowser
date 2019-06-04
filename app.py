@@ -130,11 +130,18 @@ def update_output(chart_type, study, contents):
     box_data = []
     violin_data = []
     for i, group_id in enumerate(study_data.group_id.unique()):
-        group_name = study_data['group_name'][study_data.group_id == group_id].values[0]
+        try:
+            group_name = study_data['group_name'][study_data.group_id == group_id].values[0]
+        except KeyError:
+            group_name = group_id
+
         group_type = study_data['group_type'][study_data.group_id == group_id].values[0]
 
         y_data = study_data['reading_value'][study_data.group_id == group_id]
-        subject_ids = study_data['subject_id'][study_data.group_id == group_id]
+        try:
+            subject_ids = study_data['subject_id'][study_data.group_id == group_id]
+        except KeyError:
+            subject_ids = None
 
         t, p = stats.ttest_ind(vehicle_readings,
                                y_data)
