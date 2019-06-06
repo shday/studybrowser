@@ -21,12 +21,13 @@ app = dash.Dash(__name__)
 default_study_data = pd.read_csv('study.csv')
 
 app.layout = html.Div(className='', children=[
+    html.Div(id='error-message'),
     html.Div(className='study-browser-banner', children='Animal Study Browser'),
     html.Div(className='container', children=[
         html.Div(className='row', children=[
 
             html.Div(className='six columns', children=[
-                html.Em("Test Article:"),
+                html.Em("Test Article/Study:"),
                 dcc.Dropdown(
                     id='study-dropdown',
                 )
@@ -79,11 +80,9 @@ app.layout = html.Div(className='', children=[
     ])
 ])
 
-
-@app.callback([Output('study-dropdown', 'options'),
-               Output('study-dropdown', 'value')],
+@app.callback(Output('error-message', 'children'),
               [Input('upload-data', 'contents')])
-def update_dropdown(contents):
+def update_error(contents):
     if contents:
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
@@ -92,14 +91,41 @@ def update_dropdown(contents):
     else:
         study_data = default_study_data
 
-    test_articles = study_data.test_article[study_data.group_type == 'test'].unique()
+    missing_columns = {'group_id', 'group_type', 'reading_value', 'study_id'}.difference(study_data.columns)
+
+    if missing_columns:
+        return html.Div(className='alert', children=['Missing columns: ' + str(missing_columns)])
+
+    return None
+
+
+@app.callback([Output('study-dropdown', 'options'),
+               Output('study-dropdown', 'value')],
+              [Input('error-message', 'children')],
+              [State('upload-data', 'contents'),
+               ])
+def update_dropdown(error_message, contents):
+    if contents and not error_message:
+        content_type, content_string = contents.split(',')
+        decoded = base64.b64decode(content_string)
+        study_data = pd.read_csv(
+            io.StringIO(decoded.decode('utf-8')))
+    else:
+        study_data = default_study_data
 
     options = []
-
-    for test_article in test_articles:
-        studies = study_data.study_id[study_data.test_article == test_article].unique()
+    try:
+        test_articles = study_data.test_article[study_data.group_type == 'test'].unique()
+    except AttributeError:
+        studies = study_data.study_id.unique()
         for study in studies:
-            options.append({'label': "{} (study: {})".format(test_article, study), 'value': study})
+            options.append({'label': study, 'value': study})
+    else:
+        for test_article in test_articles:
+            studies = study_data.study_id[study_data.test_article == test_article].unique()
+            for study in studies:
+                options.append({'label': "{} (study: {})".format(test_article, study), 'value': study})
+
     value = options[0]['value']
 
     return options, value
@@ -108,9 +134,11 @@ def update_dropdown(contents):
 @app.callback(Output('plot', 'figure'),
               [Input('chart-type', 'value'),
                Input('study-dropdown', 'value')],
-              [State('upload-data', 'contents')])
-def update_output(chart_type, study, contents):
-    if contents:
+              [State('upload-data', 'contents'),
+               State('error-message', 'children')])
+def update_output(chart_type, study, contents, error_message):
+
+    if contents and not error_message:
         content_type, content_string = contents.split(',')
         print(content_type)
         decoded = base64.b64decode(content_string)
@@ -177,11 +205,17 @@ def update_output(chart_type, study, contents):
         )
 
     chart_data = {'box': box_data, 'violin': violin_data}
+
+    if 'reading_name' in study_data.columns:
+        reading_name = study_data['reading_name'].unique()[0]
+    else:
+        reading_name = None
+
     figure = go.Figure(
         data=chart_data[chart_type],
         layout=go.Layout(
             height=600,
-            yaxis=dict(title=dict(text=study_data['reading_name'].unique()[0],
+            yaxis=dict(title=dict(text=reading_name,
                                   font=dict(
                                       family='"Open Sans", "HelveticaNeue", "Helvetica Neue",'
                                              ' Helvetica, Arial, sans-serif',
@@ -200,6 +234,13 @@ def update_output(chart_type, study, contents):
     )
 
     return figure
+
+
+def validate_data(df):
+    if {'group_id', 'reading_value'}.difference(df.columns):
+        return False
+
+    return True
 
 
 if __name__ == '__main__':
