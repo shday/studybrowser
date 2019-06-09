@@ -8,8 +8,10 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
 import pandas as pd
+import numpy as np
 from dash.dependencies import Input, Output, State
 from scipy import stats
+
 
 group_colors = {'negative': 'light blue',
                 'test': 'green',
@@ -27,7 +29,7 @@ app.layout = html.Div(className='', children=[
         html.Div(className='row', children=[
 
             html.Div(className='six columns', children=[
-                html.Em("Test Article/Study:"),
+                html.Em(id="dropdown-label"),
                 dcc.Dropdown(
                     id='study-dropdown',
                 )
@@ -100,7 +102,8 @@ def update_error(contents):
 
 
 @app.callback([Output('study-dropdown', 'options'),
-               Output('study-dropdown', 'value')],
+               Output('study-dropdown', 'value'),
+               Output("dropdown-label", 'children')],
               [Input('error-message', 'children')],
               [State('upload-data', 'contents'),
                ])
@@ -115,12 +118,14 @@ def update_dropdown(error_message, contents):
 
     options = []
     try:
-        test_articles = study_data.test_article[study_data.group_type == 'test'].unique()
+        test_articles = study_data.test_article.unique()
     except AttributeError:
         studies = study_data.study_id.unique()
+        dropdown_label = ["Study ID:"]
         for study in studies:
             options.append({'label': study, 'value': study})
     else:
+        dropdown_label = ["Test Article:"]
         for test_article in test_articles:
             studies = study_data.study_id[study_data.test_article == test_article].unique()
             for study in studies:
@@ -128,7 +133,7 @@ def update_dropdown(error_message, contents):
 
     value = options[0]['value']
 
-    return options, value
+    return options, value, dropdown_label
 
 
 @app.callback(Output('plot', 'figure'),
@@ -151,7 +156,11 @@ def update_output(chart_type, study, contents, error_message):
         study = study_data.study_id[0]
     study_data = study_data[study_data.study_id == study]
 
-    vehicle_readings = study_data['reading_value'][study_data.group_type == 'negative']
+    #try:
+    vehicle_readings = study_data['reading_value'][study_data["group_type"] == 'negative']
+    #except KeyError:
+    #    vehicle_readings = np.array()
+
     data_range = study_data['reading_value'].max() - study_data['reading_value'].min()
 
     test_stats = {}
@@ -163,7 +172,10 @@ def update_output(chart_type, study, contents, error_message):
         except KeyError:
             group_name = group_id
 
+        #try:
         group_type = study_data['group_type'][study_data.group_id == group_id].values[0]
+        #except KeyError:
+        #    group_type = 'not specified'
 
         y_data = study_data['reading_value'][study_data.group_id == group_id]
         try:
@@ -172,12 +184,12 @@ def update_output(chart_type, study, contents, error_message):
             subject_ids = None
 
         t, p = stats.ttest_ind(vehicle_readings,
-                               y_data)
+                           y_data)
 
         test_stats[group_id] = {'t': t, 'p': p, 'pf': 'p={:0.3f}'.format(p) if p >= 0.001 else 'p<0.001',
-                                'astrix': '***' if p <= 0.001 else '**' if p <= 0.01 else '*' if p <= 0.05 else '',
-                                'max_y': y_data.max(),
-                                'index': i}
+                            'astrix': '***' if p <= 0.001 else '**' if p <= 0.01 else '*' if p <= 0.05 else '',
+                            'max_y': y_data.max(),
+                            'index': i}
 
         box_data.append(
             go.Box(y=y_data,
@@ -188,7 +200,7 @@ def update_output(chart_type, study, contents, error_message):
                    showlegend=False,
                    boxpoints='all',
                    pointpos=0,
-                   line={'color': group_colors[group_type]}
+                   line={'color': group_colors.get(group_type, 'green')}
                    )
         )
         violin_data.append(
@@ -200,7 +212,7 @@ def update_output(chart_type, study, contents, error_message):
                       showlegend=False,
                       points='all',
                       pointpos=0,
-                      line={'color': group_colors[group_type]}
+                      line={'color': group_colors.get(group_type, 'green')}
                       )
         )
 
@@ -210,6 +222,22 @@ def update_output(chart_type, study, contents, error_message):
         reading_name = study_data['reading_name'].unique()[0]
     else:
         reading_name = None
+
+    if not vehicle_readings.empty:
+        ref_groups = set(study_data.group_id[study_data.group_type == 'positive'].unique())
+        control_groups = set(study_data.group_id[study_data.group_type == 'negative'].unique())
+        all_groups = set(study_data.group_id.unique())
+        groups_to_annotate = all_groups - ref_groups - control_groups
+        annotations = [
+            dict(
+                x=test_stats[group_id]['index'],
+                y=test_stats[group_id]['max_y'] + data_range / (4 if chart_type == 'violin' else 10),
+                text='{}<br>{}'.format(test_stats[group_id]['astrix'], test_stats[group_id]['pf']),
+                showarrow=False,
+            ) for group_id in groups_to_annotate
+        ]
+    else:
+        annotations = None
 
     figure = go.Figure(
         data=chart_data[chart_type],
@@ -222,14 +250,7 @@ def update_output(chart_type, study, contents, error_message):
                                       size=12)
                                   ),
                        ),
-            annotations=[
-                dict(
-                    x=test_stats[group_id]['index'],
-                    y=test_stats[group_id]['max_y'] + data_range / (4 if chart_type == 'violin' else 10),
-                    text='{}<br>{}'.format(test_stats[group_id]['astrix'], test_stats[group_id]['pf']),
-                    showarrow=False,
-                ) for group_id in study_data.group_id[study_data.group_type == 'test'].unique()
-            ]
+            annotations=annotations
         )
     )
 
