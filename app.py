@@ -8,14 +8,11 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
 import pandas as pd
-import numpy as np
 from dash.dependencies import Input, Output, State
 from scipy import stats
 
-
-group_colors = {'negative': 'light blue',
-                'test': 'green',
-                'positive': 'red'
+group_colors = {'control': 'light blue',
+                'reference': 'red'
                 }
 
 app = dash.Dash(__name__)
@@ -82,6 +79,7 @@ app.layout = html.Div(className='', children=[
     ])
 ])
 
+
 @app.callback(Output('error-message', 'children'),
               [Input('upload-data', 'contents')])
 def update_error(contents):
@@ -142,7 +140,6 @@ def update_dropdown(error_message, contents):
               [State('upload-data', 'contents'),
                State('error-message', 'children')])
 def update_output(chart_type, study, contents, error_message):
-
     if contents and not error_message:
         content_type, content_string = contents.split(',')
         print(content_type)
@@ -156,10 +153,7 @@ def update_output(chart_type, study, contents, error_message):
         study = study_data.study_id[0]
     study_data = study_data[study_data.study_id == study]
 
-    #try:
-    vehicle_readings = study_data['reading_value'][study_data["group_type"] == 'negative']
-    #except KeyError:
-    #    vehicle_readings = np.array()
+    vehicle_readings = study_data['reading_value'][study_data["group_type"] == 'control']
 
     data_range = study_data['reading_value'].max() - study_data['reading_value'].min()
 
@@ -172,10 +166,7 @@ def update_output(chart_type, study, contents, error_message):
         except KeyError:
             group_name = group_id
 
-        #try:
         group_type = study_data['group_type'][study_data.group_id == group_id].values[0]
-        #except KeyError:
-        #    group_type = 'not specified'
 
         y_data = study_data['reading_value'][study_data.group_id == group_id]
         try:
@@ -184,12 +175,12 @@ def update_output(chart_type, study, contents, error_message):
             subject_ids = None
 
         t, p = stats.ttest_ind(vehicle_readings,
-                           y_data)
+                               y_data)
 
         test_stats[group_id] = {'t': t, 'p': p, 'pf': 'p={:0.3f}'.format(p) if p >= 0.001 else 'p<0.001',
-                            'astrix': '***' if p <= 0.001 else '**' if p <= 0.01 else '*' if p <= 0.05 else '',
-                            'max_y': y_data.max(),
-                            'index': i}
+                                'astrix': '***' if p <= 0.001 else '**' if p <= 0.01 else '*' if p <= 0.05 else '',
+                                'max_y': y_data.max(),
+                                'index': i}
 
         box_data.append(
             go.Box(y=y_data,
@@ -224,8 +215,8 @@ def update_output(chart_type, study, contents, error_message):
         reading_name = None
 
     if not vehicle_readings.empty:
-        ref_groups = set(study_data.group_id[study_data.group_type == 'positive'].unique())
-        control_groups = set(study_data.group_id[study_data.group_type == 'negative'].unique())
+        ref_groups = set(study_data.group_id[study_data.group_type == 'reference'].unique())
+        control_groups = set(study_data.group_id[study_data.group_type == 'control'].unique())
         all_groups = set(study_data.group_id.unique())
         groups_to_annotate = all_groups - ref_groups - control_groups
         annotations = [
@@ -255,13 +246,6 @@ def update_output(chart_type, study, contents, error_message):
     )
 
     return figure
-
-
-def validate_data(df):
-    if {'group_id', 'reading_value'}.difference(df.columns):
-        return False
-
-    return True
 
 
 if __name__ == '__main__':

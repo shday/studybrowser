@@ -1,9 +1,30 @@
 # Animal Study Browser
 
 ## About this app
+This app displays the results of a study comparing several treatment 
+groups and optionally calculates p-values. Data from one or more
+studies are loaded from a csv file containing the following 
+column headers (case sensitive):
+
+* study_id
+* group_id
+* group_type
+* reading_value
+
+The file should have one row for each subject. If a group has
+group_type "control", it will be compared to the other groups using a t-test.
+The group_type "reference" will suppress this calculation. 
+
+The app will also recognize the following columns, providing
+some enhanced functionality:
+
+* subject_id - displayed on hover-over of data points
+* test_article - displayed in the study selection drop-down
+* group_name - replaces group_id on the x-axis
+* reading_name - y-axis title 
 
 
-### Small Animal Studies in drug discovery
+### Animal Studies in drug discovery
 
 
 ## How to run this app
