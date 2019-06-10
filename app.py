@@ -129,6 +129,8 @@ def update_dropdown(error_message, contents):
             for study in studies:
                 options.append({'label': "{} (study: {})".format(test_article, study), 'value': study})
 
+    options.sort(key=lambda item: item["label"])
+
     value = options[0]['value']
 
     return options, value, dropdown_label
