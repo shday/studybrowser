@@ -122,22 +122,20 @@ def update_dropdown(error_message, contents):
         study_data = default_study_data
 
     options = []
-    try:
+    if "test_article" in study_data.columns:
         test_articles = study_data.test_article.unique()
-    except AttributeError:
-        studies = study_data.study_id.unique()
-        dropdown_label = ["Study ID:"]
-        for study in studies:
-            options.append({"label": study, "value": study})
-    else:
         dropdown_label = ["Test Article:"]
         for test_article in test_articles:
             studies = study_data.study_id[study_data.test_article == test_article].unique()
             for study in studies:
                 options.append({"label": "{} (study: {})".format(test_article, study), "value": study})
+    else:
+        studies = study_data.study_id.unique()
+        dropdown_label = ["Study ID:"]
+        for study in studies:
+            options.append({"label": study, "value": study})
 
     options.sort(key=lambda item: item["label"])
-
     value = options[0]["value"]
 
     return options, value, dropdown_label
@@ -153,7 +151,6 @@ def update_output(chart_type, study, contents, error_message):
         study_data = error_study_data
     elif contents:
         content_type, content_string = contents.split(",")
-        print(content_type)
         decoded = base64.b64decode(content_string)
         study_data = pd.read_csv(
             io.StringIO(decoded.decode("utf-8")))
@@ -163,10 +160,9 @@ def update_output(chart_type, study, contents, error_message):
 
     if study is None:
         study = study_data.study_id[0]
+
     study_data = study_data[study_data.study_id == study]
-
     vehicle_readings = study_data["reading_value"][study_data["group_type"] == "control"]
-
     data_range = study_data["reading_value"].max() - study_data["reading_value"].min()
 
     test_stats = {}
@@ -179,8 +175,8 @@ def update_output(chart_type, study, contents, error_message):
             group_name = group_id
 
         group_type = study_data["group_type"][study_data.group_id == group_id].values[0]
-
         y_data = study_data["reading_value"][study_data.group_id == group_id]
+
         try:
             subject_ids = study_data["subject_id"][study_data.group_id == group_id]
         except KeyError:
@@ -188,7 +184,6 @@ def update_output(chart_type, study, contents, error_message):
 
         t, p = stats.ttest_ind(vehicle_readings,
                                y_data)
-
         test_stats[group_id] = {"t": t, "p": p, "pf": "p={:0.3f}".format(p) if p >= 0.001 else "p<0.001",
                                 "astrix": "***" if p <= 0.001 else "**" if p <= 0.01 else "*" if p <= 0.05 else "",
                                 "max_y": y_data.max(),
