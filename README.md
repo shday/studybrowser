@@ -16,7 +16,7 @@ group_type "control", it will be compared to the other groups using a t-test.
 The group_type "reference" will suppress this calculation. 
 
 The app will also recognize the following columns, providing
-some enhanced functionality:
+some additional functionality:
 
 * subject_id - displayed on hover-over of data points
 * test_article - displayed in the study selection drop-down
@@ -25,6 +25,11 @@ some enhanced functionality:
 
 
 ### Animal Studies in drug discovery
+Animal studies are often used to determine if a drug candidate (i.e., test article) 
+has the desired effect in disease model. For example, a study 
+could measure the ability of a compound to reduce tumor size in a mouse cancer 
+model or control blood sugar in diabetic rats. Studies are almost always designed to
+compare against untreated controls and test for statistical significance. 
 
 
 ## How to run this app
